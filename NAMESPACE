@@ -1,0 +1,3 @@
+importFrom(Biostrings,readDNAStringSet,width)
+importFrom(TmCalculator, complement,GC,Tm_NN)
+exportPattern("^[[:alpha:]]+")
