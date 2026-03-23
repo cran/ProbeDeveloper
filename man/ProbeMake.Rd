@@ -16,14 +16,15 @@ ProbeMake(
   method = c("S2L", "L2S"),
   direction = c("3to5", "5to3"),
   prohibitseq = NULL,
-  TmMethod = c("Tm_GC", "Tm_NN"),
+  TmMethod = c("tm_gc", "tm_nn"),
   variant = c("Primer3Plus", "Chester1993", "QuikChange", "Schildkraut1965",
     "Wetmur1991_MELTING", "Wetmur1991_RNA", "Wetmur1991_RNA/DNA", "vonAhsen2001"),
-  nn_table = c("DNA_NN4", "DNA_NN1", "DNA_NN2", "DNA_NN3", "RNA_NN1", "RNA_NN2",
-    "RNA_NN3", "R_DNA_NN1"),
-  tmm_table = "DNA_TMM1",
-  imm_table = "DNA_IMM1",
-  de_table = c("DNA_DE1", "RNA_DE1"),
+  nn_table = c("DNA_NN_Breslauer_1986", "DNA_NN_Sugimoto_1996", "DNA_NN_Allawi_1998",
+    "DNA_NN_SantaLucia_2004", "RNA_NN_Freier_1986", "RNA_NN_Xia_1998",
+    "RNA_NN_Chen_2012", "RNA_DNA_NN_Sugimoto_1995"),
+  tmm_table = "DNA_TMM_Bommarito_2000",
+  imm_table = "DNA_IMM_Peyret_1999",
+  de_table = c("DNA_DE_Bommarito_2000", "RNA_DE_Turner_2010"),
   dnac1 = 25,
   dnac2 = 25,
   Na = 0,
@@ -37,7 +38,7 @@ ProbeMake(
   fmd = 0,
   DMSOfactor = 0.75,
   fmdfactor = 0.65,
-  fmdmethod = c("concentration", "molar")
+  fmdmethod = c("percent", "molar")
 )
 }
 \arguments{
@@ -63,26 +64,37 @@ ProbeMake(
 
 \item{prohibitseq}{Prohibited sequence list, e.g prohibitseq=c("GGGGG","CCCCC"), default is NULL}
 
-\item{TmMethod}{The method used to calculate Tm, 'Tm_NN' and 'Tm_GC' can be seleted}
+\item{TmMethod}{The method used to calculate Tm, 'tm_nn' and 'tm_gc' can be seleted}
 
-\item{variant}{Empirical constants coefficient with 8 variant for 'Tm_GC' method: Chester1993, QuikChange, Schildkraut1965, Wetmur1991_MELTING, Wetmur1991_RNA, Wetmur1991_RNA/DNA, Primer3Plus and vonAhsen2001}
+\item{variant}{Empirical constants coefficient with 8 variant for 'tm_gc' method: Chester1993, QuikChange, Schildkraut1965, Wetmur1991_MELTING, Wetmur1991_RNA, Wetmur1991_RNA/DNA, Primer3Plus and vonAhsen2001}
 
-\item{nn_table}{Thermodynamic NN values, eight tables are implemented.
+\item{nn_table}{Thermodynamic nearest-neighbor parameters for different nucleic acid hybridizations.
+  Eight parameter sets are available, organized by hybridization type:
 
-For DNA/DNA hybridizations:
-  DNA_NN1,DNA_NN2,DNA_NN3,DNA_NN4
+  DNA/DNA hybridizations:
+  - "DNA_NN_Breslauer_1986": Original DNA/DNA parameters
+  - "DNA_NN_Sugimoto_1996": Improved DNA/DNA parameters
+  - "DNA_NN_Allawi_1998": DNA/DNA parameters with internal mismatch corrections
+  - "DNA_NN_SantaLucia_2004": Updated DNA/DNA parameters
 
-For RNA/RNA hybridizations:
-  RNA_NN1,RNA_NN2,RNA_NN3
+  RNA/RNA hybridizations:
+  - "RNA_NN_Freier_1986": Original RNA/RNA parameters
+  - "RNA_NN_Xia_1998": Improved RNA/RNA parameters
+  - "RNA_NN_Chen_2012": Updated RNA/RNA parameters with GU pair corrections
 
-For RNA/DNA hybridizations:
-  R_DNA_NN1}
+  RNA/DNA hybridizations:
+  - "RNA_DNA_NN_Sugimoto_1995": RNA/DNA hybridization parameters}
 
-\item{tmm_table}{Thermodynamic values for terminal mismatches. Default: DNA_TMM1}
+\item{tmm_table}{Thermodynamic parameters for terminal mismatches. Default: "DNA_TMM_Bommarito_2000"
+These parameters account for mismatches at the ends of the duplex.}
 
-\item{imm_table}{Thermodynamic values for internal mismatches, may include insosine mismatches. Default: DNA_IMM1}
+\item{imm_table}{Thermodynamic parameters for internal mismatches. Default: "DNA_IMM_Peyret_1999"
+These parameters account for mismatches within the duplex, including inosine mismatches.}
 
-\item{de_table}{Thermodynamic values for dangling ends: DNA_DE1(default),RNA_DE1}
+\item{de_table}{Thermodynamic parameters for dangling ends. Default: "DNA_DE_Bommarito_2000"
+Available options:
+- "DNA_DE_Bommarito_2000": Parameters for DNA dangling ends
+- "RNA_DE_Turner_2010": Parameters for RNA dangling ends}
 
 \item{dnac1}{Concentration of the higher concentrated strand [nM]. Typically this will be the primer (for PCR) or the probe. Default: 25}
 
@@ -102,13 +114,13 @@ For RNA/DNA hybridizations:
 
 \item{DMSO}{Percent of DMSO}
 
-\item{fmd}{Formamide concentration in percentage (fmdmethod="concentration") or molar (fmdmethod="molar")}
+\item{fmd}{Formamide concentration in percentage (fmdmethod="percent") or molar (fmdmethod="molar"). Default is 0.}
 
 \item{DMSOfactor}{Coeffecient of Tm decreases per percent DMSO. Default=0.75 von Ahsen N (2001) <PMID:11673362>. Other published values are 0.5, 0.6 and 0.675.}
 
 \item{fmdfactor}{Coeffecient of Tm decrease per percent formamide. Default=0.65. Several papers report factors between 0.6 and 0.72.}
 
-\item{fmdmethod}{"concentration" method for formamide concentration in percentage and "molar" for formamide concentration in molar}
+\item{fmdmethod}{"percent" method for formamide concentration in percentage and "molar" for formamide concentration in molar}
 }
 \value{
 Returns a bed file in the format TargetID <tab> Chr <tab> Start <tab> End <tab> Sequence <tab> Tm <tab> GC
@@ -117,8 +129,11 @@ Returns a bed file in the format TargetID <tab> Chr <tab> Start <tab> End <tab> 
 Probes are made with a FASTA-formatted input file containing the target sequence. User can specify the allowable ranges of probe length, percent GC content, and adjust melting temperature calculated using nearest neighbor thermodynamics or empirical formulas based on GC content. Candidate probe sequences passing all checks output in BED format.
 }
 \examples{
+
+\dontrun{
 data(samplefa)
-ProbeMake(samplefa,LN=90,ln=60,TM=80,tm=70,CG=80,cg=20,TmMethod="Tm_NN",Na=50)
+ProbeMake(samplefa,LN=90,ln=60,TM=80,tm=70,CG=80,cg=20,TmMethod="tm_nn",Na=50)
+}
 
 }
 \references{

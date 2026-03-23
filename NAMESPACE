@@ -2,7 +2,6 @@
 
 export(ProbeMake)
 importFrom(Biostrings,width)
-importFrom(TmCalculator,GC)
-importFrom(TmCalculator,Tm_GC)
-importFrom(TmCalculator,Tm_NN)
-importFrom(TmCalculator,complement)
+importFrom(TmCalculator,gc)
+importFrom(TmCalculator,generate_complement)
+importFrom(TmCalculator,tm_calculate)

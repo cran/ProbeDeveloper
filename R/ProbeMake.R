@@ -24,26 +24,37 @@
 #'
 #' @param prohibitseq Prohibited sequence list, e.g prohibitseq=c("GGGGG","CCCCC"), default is NULL
 #'
-#' @param TmMethod The method used to calculate Tm, 'Tm_NN' and 'Tm_GC' can be seleted
+#' @param TmMethod The method used to calculate Tm, 'tm_nn' and 'tm_gc' can be seleted
 #'
-#' @param variant Empirical constants coefficient with 8 variant for 'Tm_GC' method: Chester1993, QuikChange, Schildkraut1965, Wetmur1991_MELTING, Wetmur1991_RNA, Wetmur1991_RNA/DNA, Primer3Plus and vonAhsen2001
+#' @param variant Empirical constants coefficient with 8 variant for 'tm_gc' method: Chester1993, QuikChange, Schildkraut1965, Wetmur1991_MELTING, Wetmur1991_RNA, Wetmur1991_RNA/DNA, Primer3Plus and vonAhsen2001
 #'
-#' @param nn_table Thermodynamic NN values, eight tables are implemented.
+#' @param nn_table Thermodynamic nearest-neighbor parameters for different nucleic acid hybridizations.
+#'   Eight parameter sets are available, organized by hybridization type:
+#' 
+#'   DNA/DNA hybridizations:
+#'   - "DNA_NN_Breslauer_1986": Original DNA/DNA parameters
+#'   - "DNA_NN_Sugimoto_1996": Improved DNA/DNA parameters
+#'   - "DNA_NN_Allawi_1998": DNA/DNA parameters with internal mismatch corrections
+#'   - "DNA_NN_SantaLucia_2004": Updated DNA/DNA parameters
+#' 
+#'   RNA/RNA hybridizations:
+#'   - "RNA_NN_Freier_1986": Original RNA/RNA parameters
+#'   - "RNA_NN_Xia_1998": Improved RNA/RNA parameters
+#'   - "RNA_NN_Chen_2012": Updated RNA/RNA parameters with GU pair corrections
+#' 
+#'   RNA/DNA hybridizations:
+#'   - "RNA_DNA_NN_Sugimoto_1995": RNA/DNA hybridization parameters
 #'
-#' For DNA/DNA hybridizations:
-#'   DNA_NN1,DNA_NN2,DNA_NN3,DNA_NN4
-#'
-#' For RNA/RNA hybridizations:
-#'   RNA_NN1,RNA_NN2,RNA_NN3
-#'
-#' For RNA/DNA hybridizations:
-#'   R_DNA_NN1
-#'
-#' @param tmm_table Thermodynamic values for terminal mismatches. Default: DNA_TMM1
-#'
-#' @param imm_table Thermodynamic values for internal mismatches, may include insosine mismatches. Default: DNA_IMM1
-#'
-#' @param de_table Thermodynamic values for dangling ends: DNA_DE1(default),RNA_DE1
+#' @param tmm_table Thermodynamic parameters for terminal mismatches. Default: "DNA_TMM_Bommarito_2000"
+#'   These parameters account for mismatches at the ends of the duplex.
+#' 
+#' @param imm_table Thermodynamic parameters for internal mismatches. Default: "DNA_IMM_Peyret_1999"
+#'   These parameters account for mismatches within the duplex, including inosine mismatches.
+#' 
+#' @param de_table Thermodynamic parameters for dangling ends. Default: "DNA_DE_Bommarito_2000"
+#'   Available options:
+#'   - "DNA_DE_Bommarito_2000": Parameters for DNA dangling ends
+#'   - "RNA_DE_Turner_2010": Parameters for RNA dangling ends
 #'
 #' @param dnac1 Concentration of the higher concentrated strand [nM]. Typically this will be the primer (for PCR) or the probe. Default: 25
 #'
@@ -63,13 +74,13 @@
 #'
 #' @param DMSO Percent of DMSO
 #'
-#' @param fmd Formamide concentration in percentage (fmdmethod="concentration") or molar (fmdmethod="molar")
+#' @param fmd Formamide concentration in percentage (fmdmethod="percent") or molar (fmdmethod="molar"). Default is 0.
 #'
 #' @param DMSOfactor Coeffecient of Tm decreases per percent DMSO. Default=0.75 von Ahsen N (2001) <PMID:11673362>. Other published values are 0.5, 0.6 and 0.675.
 #'
 #' @param fmdfactor Coeffecient of Tm decrease per percent formamide. Default=0.65. Several papers report factors between 0.6 and 0.72.
 #'
-#' @param fmdmethod "concentration" method for formamide concentration in percentage and "molar" for formamide concentration in molar
+#' @param fmdmethod "percent" method for formamide concentration in percentage and "molar" for formamide concentration in molar
 #'
 #' @returns Returns a bed file in the format TargetID <tab> Chr <tab> Start <tab> End <tab> Sequence <tab> Tm <tab> GC
 #'
@@ -116,10 +127,13 @@
 #' @author Junhui Li
 #'
 #' @examples
+#' 
+#' \dontrun{
 #' data(samplefa)
-#' ProbeMake(samplefa,LN=90,ln=60,TM=80,tm=70,CG=80,cg=20,TmMethod="Tm_NN",Na=50)
-#'
-#' @importFrom  TmCalculator complement GC Tm_NN Tm_GC
+#' ProbeMake(samplefa,LN=90,ln=60,TM=80,tm=70,CG=80,cg=20,TmMethod="tm_nn",Na=50)
+#' }
+#' 
+#' @importFrom  TmCalculator generate_complement gc tm_calculate
 #' @importFrom  Biostrings width
 #'
 #' @export
@@ -135,7 +149,7 @@ ProbeMake <- function(fafile,
                       method=c("S2L","L2S"),
                       direction=c("3to5","5to3"),
                       prohibitseq=NULL,
-                      TmMethod=c("Tm_GC","Tm_NN"),
+                      TmMethod=c("tm_gc","tm_nn"),
                       variant=c("Primer3Plus",
                                 "Chester1993",
                                 "QuikChange",
@@ -144,18 +158,18 @@ ProbeMake <- function(fafile,
                                 "Wetmur1991_RNA",
                                 "Wetmur1991_RNA/DNA",
                                 "vonAhsen2001"),
-                      nn_table=c("DNA_NN4",
-                                 "DNA_NN1",
-                                 "DNA_NN2",
-                                 "DNA_NN3",
-                                 "RNA_NN1",
-                                 "RNA_NN2",
-                                 "RNA_NN3",
-                                 "R_DNA_NN1"),
-                      tmm_table="DNA_TMM1",
-                      imm_table="DNA_IMM1",
-                      de_table=c("DNA_DE1",
-                             "RNA_DE1"),
+                      nn_table=c("DNA_NN_Breslauer_1986",
+                                 "DNA_NN_Sugimoto_1996",
+                                 "DNA_NN_Allawi_1998",
+                                 "DNA_NN_SantaLucia_2004",
+                                 "RNA_NN_Freier_1986",
+                                 "RNA_NN_Xia_1998",
+                                 "RNA_NN_Chen_2012",
+                                 "RNA_DNA_NN_Sugimoto_1995"),
+                      tmm_table="DNA_TMM_Bommarito_2000",
+                      imm_table="DNA_IMM_Peyret_1999",
+                      de_table=c("DNA_DE_Bommarito_2000",
+                             "RNA_DE_Turner_2010"),
                       dnac1=25,
                       dnac2=25,
                       Na=0,
@@ -174,7 +188,7 @@ ProbeMake <- function(fafile,
                       fmd=0,
                       DMSOfactor=0.75,
                       fmdfactor=0.65,
-                      fmdmethod=c("concentration","molar")){
+                      fmdmethod=c("percent","molar")){
   method <- match.arg(method)
   direction <- match.arg(direction)
   nn_table <- match.arg(nn_table)
@@ -204,7 +218,7 @@ ProbeMake <- function(fafile,
     if(direction=='3to5'){
       seqCont <- seqCont
     }else{
-      seqCont <- TmCalculator::complement(seqCont,reverse=TRUE)
+      seqCont <- TmCalculator::generate_complement(seqCont,reverse=TRUE)
     }
     SeqInfor <- unlist(strsplit(seqNameSet[i], "[ \t]+"))
     SeqID <- SeqInfor[1]
@@ -242,32 +256,34 @@ ProbeMake <- function(fafile,
             next
           }
         }
-        CGcont <- GC(SubSeqObj)
-        if(TmMethod=="Tm_NN"){
-          Tm <- Tm_NN(SubSeqObj, ambiguous = FALSE, comSeq = NULL, shift = 0, nn_table = nn_table,
-                      tmm_table = tmm_table, imm_table = imm_table,de_table = de_table, dnac1 = dnac1,
-                      dnac2 = dnac2, selfcomp = FALSE, Na = Na, K = K, Tris = Tris, Mg = Mg, dNTPs = dNTPs,
-                      saltcorr = saltcorr,DMSO=DMSO,fmd=fmd,DMSOfactor=DMSOfactor,
-                      fmdfactor=fmdfactor,fmdmethod=fmdmethod)
-        }else{
-          Tm <- Tm_GC(SubSeqObj,
-                       ambiguous=FALSE,
-                       userset=NULL,
-                       variant=variant,
-                       Na=Na,
-                       K=K,
-                       Tris=Tris,
-                       Mg=Mg,
-                       dNTPs=dNTPs,
-                       saltcorr=saltcorr,
-                       mismatch=TRUE,
-                       DMSO=DMSO,
-                       fmd=fmd,
-                       DMSOfactor=DMSOfactor,
-                       fmdfactor=fmdfactor,
-                       fmdmethod=fmdmethod)
-        }
-        Tm <- Tm$Tm
+        CGcont <- gc(SubSeqObj)
+
+        TmResult <- tm_calculate(SubSeqObj,
+                           method = TmMethod,
+                           ambiguous=FALSE,
+                           complement_seq = NULL,
+                           shift = 0,
+                           nn_table = nn_table,
+                           tmm_table = tmm_table,
+                           imm_table = imm_table,
+                           de_table = de_table,
+                           dnac_high = dnac1,
+                           dnac_low = dnac2,
+                           self_comp = FALSE,
+                           variant=variant,
+                           Na = Na,
+                           K = K,
+                           Tris = Tris,
+                           Mg = Mg,
+                           dNTPs = dNTPs,
+                           salt_corr_method = saltcorr,
+                           dmso_factor=DMSOfactor,
+                           formamide_factor=fmdfactor,
+                           DMSO = DMSO,
+                           formamide_value_unit = list(value = fmd, unit = fmdmethod),
+                           mismatch=TRUE)
+
+        Tm <- as.data.frame(TmResult$tm)$Tm.Tm
         Index <- c((CGcont <= CG & CGcont >= cg) & (Tm >=tm & Tm <= TM))
 
         if(Index==FALSE){
@@ -292,7 +308,7 @@ ProbeMake <- function(fafile,
             End2 <- seqS+pstart-1+n
             Start1 <- seqS+seqE-End2
             End1 <- seqS+seqE-Start2
-            SubSeqObj <- complement(SubSeqObj,reverse=TRUE)
+            SubSeqObj <- generate_complement(SubSeqObj,reverse=TRUE)
           }
           ProbeSet <- rbind(ProbeSet,data.frame(TargetID=SeqID,Chr=ChrID,Start=Start1,End=End1,
                                                 Sequence=SubSeqObj,Tm=Tm,GC=CGcont))
@@ -325,33 +341,35 @@ ProbeMake <- function(fafile,
             next
           }
         }
-        CGcont <- GC(SubSeqObj)
-        if(TmMethod=="Tm_NN"){
-          Tm <- Tm_NN(SubSeqObj, ambiguous = FALSE, comSeq = NULL, shift = 0, nn_table = nn_table,
-                      tmm_table = tmm_table, imm_table = imm_table,de_table = de_table, dnac1 = dnac1,
-                      dnac2 = dnac2, selfcomp = FALSE, Na = Na, K = K, Tris = Tris, Mg = Mg, dNTPs = dNTPs,
-                      saltcorr = saltcorr,DMSO=DMSO,fmd=fmd,DMSOfactor=DMSOfactor,
-                      fmdfactor=fmdfactor,fmdmethod=fmdmethod)
-        }else{
-          Tm <- Tm_GC(SubSeqObj,
-                      ambiguous=FALSE,
-                      userset=NULL,
-                      variant=variant,
-                      Na=Na,
-                      K=K,
-                      Tris=Tris,
-                      Mg=Mg,
-                      dNTPs=dNTPs,
-                      saltcorr=saltcorr,
-                      mismatch=TRUE,
-                      DMSO=DMSO,
-                      fmd=fmd,
-                      DMSOfactor=DMSOfactor,
-                      fmdfactor=fmdfactor,
-                      fmdmethod=fmdmethod)
-        }
-        Tm <- Tm$Tm
-        Index <- c((CGcont <= CG & CGcont >= cg) & (Tm >=tm & Tm <= TM))
+        CGcont <- gc(SubSeqObj)
+        TmResult <- tm_calculate(SubSeqObj,
+                           method = TmMethod,
+                           ambiguous=FALSE,
+                           complement_seq = NULL,
+                           shift = 0,
+                           nn_table = nn_table,
+                           tmm_table = tmm_table,
+                           imm_table = imm_table,
+                           de_table = de_table,
+                           dnac_high = dnac1,
+                           dnac_low = dnac2,
+                           self_comp = FALSE,
+                           variant=variant,
+                           Na = Na,
+                           K = K,
+                           Tris = Tris,
+                           Mg = Mg,
+                           dNTPs = dNTPs,
+                           salt_corr_method = saltcorr,
+                           dmso_factor=DMSOfactor,
+                           formamide_factor=fmdfactor,
+                           DMSO = DMSO,
+                           formamide_value_unit = list(value = fmd, unit = fmdmethod),
+                           mismatch=TRUE)
+
+
+        Tm <- as.data.frame(TmResult$tm)$Tm.Tm
+        Index <- c((CGcont <= CG & CGcont >= cg) & (Tm >= tm & Tm <= TM))
 
         if(Index==FALSE){
           # extend probe start position if Tm > TM
@@ -375,7 +393,7 @@ ProbeMake <- function(fafile,
             End2 <- seqS+pstart-1+n
             Start1 <- seqS+seqE-End2
             End1 <- seqS+seqE-Start2
-            SubSeqObj <- TmCalculator::complement(SubSeqObj,reverse=TRUE)
+            SubSeqObj <- TmCalculator::generate_complement(SubSeqObj,reverse=TRUE)
           }
           ProbeSet <- rbind(ProbeSet,data.frame(TargetID=SeqID,Chr=ChrID,Start=Start1,End=End1,
                                                 Sequence=SubSeqObj,Tm=Tm,GC=CGcont))
