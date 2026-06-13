@@ -276,11 +276,11 @@ ProbeMake <- function(fafile,
                            Tris = Tris,
                            Mg = Mg,
                            dNTPs = dNTPs,
-                           salt_corr_method = saltcorr,
+                           salt_method = saltcorr,
                            dmso_factor=DMSOfactor,
                            formamide_factor=fmdfactor,
                            DMSO = DMSO,
-                           formamide_value_unit = list(value = fmd, unit = fmdmethod),
+                           formamide_unit = list(value = fmd, unit = fmdmethod),
                            mismatch=TRUE)
 
         Tm <- as.data.frame(TmResult$tm)$Tm.Tm
@@ -360,11 +360,11 @@ ProbeMake <- function(fafile,
                            Tris = Tris,
                            Mg = Mg,
                            dNTPs = dNTPs,
-                           salt_corr_method = saltcorr,
+                           salt_method = saltcorr,
                            dmso_factor=DMSOfactor,
                            formamide_factor=fmdfactor,
                            DMSO = DMSO,
-                           formamide_value_unit = list(value = fmd, unit = fmdmethod),
+                           formamide_unit = list(value = fmd, unit = fmdmethod),
                            mismatch=TRUE)
 
 
