@@ -133,7 +133,7 @@
 #' ProbeMake(samplefa,LN=90,ln=60,TM=80,tm=70,CG=80,cg=20,TmMethod="tm_nn",Na=50)
 #' }
 #' 
-#' @importFrom  TmCalculator generate_complement gc tm_calculate
+#' @importFrom  TmCalculator generate_complement gc_content tm_calculate
 #' @importFrom  Biostrings width
 #'
 #' @export
@@ -197,6 +197,9 @@ ProbeMake <- function(fafile,
   de_table <- match.arg(de_table)
   saltcorr <- match.arg(saltcorr)
   fmdmethod <- match.arg(fmdmethod)
+  TmMethod <- match.arg(TmMethod)
+  variant <- match.arg(variant)
+  salt_method_arg <- if (identical(TmMethod, "tm_nn")) saltcorr else NULL
 
   seqNameSet <- names(fafile)
   seqWid <- width(fafile)
@@ -256,7 +259,7 @@ ProbeMake <- function(fafile,
             next
           }
         }
-        CGcont <- gc(SubSeqObj)
+        CGcont <- gc_content(SubSeqObj)
 
         TmResult <- tm_calculate(SubSeqObj,
                            method = TmMethod,
@@ -276,14 +279,14 @@ ProbeMake <- function(fafile,
                            Tris = Tris,
                            Mg = Mg,
                            dNTPs = dNTPs,
-                           salt_method = saltcorr,
+                           salt_method = salt_method_arg,
                            dmso_factor=DMSOfactor,
                            formamide_factor=fmdfactor,
                            DMSO = DMSO,
                            formamide_unit = list(value = fmd, unit = fmdmethod),
                            mismatch=TRUE)
 
-        Tm <- as.data.frame(TmResult$tm)$Tm.Tm
+        Tm <- TmResult$df$Tm
         Index <- c((CGcont <= CG & CGcont >= cg) & (Tm >=tm & Tm <= TM))
 
         if(Index==FALSE){
@@ -341,7 +344,7 @@ ProbeMake <- function(fafile,
             next
           }
         }
-        CGcont <- gc(SubSeqObj)
+        CGcont <- gc_content(SubSeqObj)
         TmResult <- tm_calculate(SubSeqObj,
                            method = TmMethod,
                            ambiguous=FALSE,
@@ -360,7 +363,7 @@ ProbeMake <- function(fafile,
                            Tris = Tris,
                            Mg = Mg,
                            dNTPs = dNTPs,
-                           salt_method = saltcorr,
+                           salt_method = salt_method_arg,
                            dmso_factor=DMSOfactor,
                            formamide_factor=fmdfactor,
                            DMSO = DMSO,
@@ -368,7 +371,7 @@ ProbeMake <- function(fafile,
                            mismatch=TRUE)
 
 
-        Tm <- as.data.frame(TmResult$tm)$Tm.Tm
+        Tm <- TmResult$df$Tm
         Index <- c((CGcont <= CG & CGcont >= cg) & (Tm >= tm & Tm <= TM))
 
         if(Index==FALSE){
